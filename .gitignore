@@ -4,3 +4,5 @@ data/
 result/
 
 __pycache__/
+
+deep_env/
