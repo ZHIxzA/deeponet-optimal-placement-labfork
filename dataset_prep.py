@@ -44,8 +44,8 @@ class TransducerDataset(Dataset):
     ):
         """
         image_transforms: bool: decide if apply internally defined transform to image
-        loading_method: str, inidividual / group.
-                - inidividual: treat each transducer location - image pair as one sample
+        loading_method: str, individual / group.
+                - individual: treat each transducer location - image pair as one sample
                 - group: treat each image and corresponding 8 transducer location as one object
                 - loc_<location_index>: load only the dataset of transducer in 1 location
         """

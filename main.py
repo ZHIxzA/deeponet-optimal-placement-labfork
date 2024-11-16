@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader,Subset
 from torch.optim import Adam
 import os
 
-from opnn_transformer import opnn
+from opnn import opnn
 from dataset_prep import get_paths, TransducerDataset
 from utils import log_loss, save_loss_to_dated_file, plot_logs,plot_prediction,store_model
 from utils import ensure_directory_exists,get_time_YYYYMMDDHH
@@ -16,11 +16,14 @@ DATA_PATH = r'C:\Users\akumar80\Documents\Avisha Kumar Lab Work\deeponet dataset
 RESULT_FOLDER = r'C:\Users\akumar80\Documents\Avisha Kumar Lab Work\deeponet result 1000'
 #DATA_PATH ="data"
 #RESULT_FOLDER = "result/result" #change folder name
+DATA_PATH = r'D:\Alina Zhi Lab Work\Dataset 1000 images'
+RESULT_FOLDER = r'result/result'
 
-epochs = 1000 #total epochs to run
-VIZ_epoch_period = 200 #visualize sample validation set image every VIZ_epoch_period
-BATCHSIZE = 16 
-STEP_SIZE = 200 
+dataset_loading_method = 'loc_7'
+epochs = 300 #total epochs to run
+VIZ_epoch_period = 100 #visualize sample validation set image every VIZ_epoch_period
+BATCHSIZE = 2
+STEP_SIZE = 30
 
 EXPECTED_IMG_SIZE = (162, 512)
 EXPECTED_SIM_SIZE = (162, 512)
@@ -166,22 +169,6 @@ class Trainer:
         # Store model
         store_model(self.model,self.optimizer, epoch, self.result_folder)
         return self.model
-    
-
-""" old load data
-def load_data(data_path, bz):
-    images_path, masks_path, simulation_path = get_paths(data_path)  # Change this path
-    print('prepared data, model, optimizer')
-    train_val_ratio = 0.8
-    split_idx = int(len(images_path)*train_val_ratio)-1
-    dataset_train = TransducerDataset(images_path[:split_idx], simulation_path[:split_idx*8], loading_method='individual')
-    dataset_valid = TransducerDataset(images_path[split_idx:-2], simulation_path[split_idx*8:-16], loading_method='individual')
-    dataset_test = TransducerDataset(images_path[-2:], simulation_path[-16:], loading_method='individual')
-    dataloader_train = DataLoader(dataset_train, batch_size=bz, shuffle=True, num_workers=2)
-    dataloader_valid = DataLoader(dataset_valid, batch_size=bz, shuffle=True, num_workers=2)
-    dataloader_test = DataLoader(dataset_test, batch_size=bz, shuffle=True, num_workers=2)
-    return dataloader_train, dataloader_valid,dataloader_test
-""" 
 
 def load_data_by_split(data_path, bz, shuffle = True):
     print('-'*15, 'DATA READIN BY SPLIT', '-'*15)
@@ -189,8 +176,8 @@ def load_data_by_split(data_path, bz, shuffle = True):
     for split_name in ['train','val','test']:
         split_data_path=os.path.join(data_path, '{data_type}',split_name)
         images_path,simulation_path = get_paths(split_data_path)
-        dataset_ = TransducerDataset(images_path, simulation_path, loading_method='individual')
-        dataloader_ = DataLoader(dataset_, batch_size=bz, shuffle=shuffle, num_workers=2)
+        dataset_ = TransducerDataset(images_path, simulation_path, loading_method=dataset_loading_method)
+        dataloader_ = DataLoader(dataset_, batch_size=bz, shuffle=shuffle, num_workers=0)
         split_path_dict[split_name] = dataloader_
 
     return list(split_path_dict.values())
@@ -198,6 +185,7 @@ def load_data_by_split(data_path, bz, shuffle = True):
 def main(bz, num_epochs=100, result_folder = RESULT_FOLDER, folder_description = ""):
     #Use GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print('DEVICE: ',device.type )
 
     # Specify Unique Directories for result
     print('-'*15, 'CHECK RESULT DIRECTORY', '-'*15)
@@ -214,8 +202,8 @@ def main(bz, num_epochs=100, result_folder = RESULT_FOLDER, folder_description =
     output_dim = EXPECTED_SIM_SIZE[0] * EXPECTED_SIM_SIZE[1]  # Simulation dimensions (pressure map height and width) #162 * 512
 
     # Initialize model and move it to the device (GPU/CPU)
-    # model = opnn(branch1_dim, branch2_dim, trunk_dim, geometry_dim, output_dim).to(device) # for CNN
-    model = opnn(branch1_dim, branch2_dim, trunk_dim, geometry_dim, output_dim, patch_size = 9).to(device) # for transformer
+    model = opnn(branch1_dim, branch2_dim, trunk_dim, geometry_dim, output_dim).to(device) # for CNN
+    # model = opnn(branch1_dim, branch2_dim, trunk_dim, geometry_dim, output_dim, patch_size = 9).to(device) # for transformer
 
 
 

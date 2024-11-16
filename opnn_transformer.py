@@ -57,7 +57,7 @@ class opnn(nn.Module):
         num_patches = (geometry_dim[0] // patch_size) * (geometry_dim[1] // patch_size)
 
         # Transformer branch for geometry
-        self.transformer_branch = TransformerBranch(embed_dim=embed_dim, num_heads=num_heads, num_layers=num_layers, mlp_dim=mlp_dim, dropout=dropout, num_patches=num_patches)
+        self.transformer_branch = get_transformer(output_dim =64 )
 
         # Source location branch
         self._branch2 = nn.Sequential(
@@ -124,3 +124,11 @@ class opnn(nn.Module):
         # l2_reg = sum(param.norm(2) for param in self.parameters())  # L2 regularization
         # return loss + 1e-4 * l2_reg
 
+def get_transformer(output_dim = 64):
+    model = timm.create_model('swin_base_patch4_window7_224', pretrained=True)
+    model.head = nn.Linear(in_features=model.head.in_features, out_features=64)
+    # input_image = torch.randn(10, 3, 162, 512)  # Batch size of 10
+    # resize_transform = transforms.Resize((224, 224))  # Height x Width
+    # resized_tensor = torch.stack([resize_transform(img) for img in input_image])  # Apply resize to each image
+
+    return model
