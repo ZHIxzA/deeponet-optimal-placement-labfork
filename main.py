@@ -2,31 +2,38 @@ import torch
 from torch.utils.data import DataLoader,Subset
 from torch.optim import Adam
 import os
+import json
+import time
 
+#from opnn_transformer import opnn
 from opnn import opnn
+from opnn_cnn import opnn_cnn, opnn_resnet
+# opnn = opnn_cnn
+opnn = opnn_resnet
+
 from dataset_prep import get_paths, TransducerDataset
 from utils import log_loss, save_loss_to_dated_file, plot_logs,plot_prediction,store_model
 from utils import ensure_directory_exists,get_time_YYYYMMDDHH
 import argparse
 from torch.optim.lr_scheduler import StepLR
 
+## -----  LOAD PARAMETER FROM CONFIG --------- ##
+with open('config.json', 'r') as file:
+    config = json.load(file)
+DATA_PATH = config['DATA_PATH']
+RESULT_FOLDER = config['RESULT_FOLDER']
+if config['win']:
+    DATA_PATH = rf'{DATA_PATH}'
+    RESULT_FOLDER = rf'{RESULT_FOLDER}'
+epochs = config['epochs']
+VIZ_epoch_period = config['VIZ_epoch_period']
+BATCHSIZE = config['BATCHSIZE']
+STEP_SIZE = config['STEP_SIZE']
+EXPECTED_IMG_SIZE = config['EXPECTED_IMG_SIZE']
+EXPECTED_SIM_SIZE = config['EXPECTED_SIM_SIZE']
 
-#!!! No slash at the end of the path
-DATA_PATH = r'C:\Users\akumar80\Documents\Avisha Kumar Lab Work\deeponet dataset 1000'
-RESULT_FOLDER = r'C:\Users\akumar80\Documents\Avisha Kumar Lab Work\deeponet result 1000'
-#DATA_PATH ="data"
-#RESULT_FOLDER = "result/result" #change folder name
-DATA_PATH = r'D:\Alina Zhi Lab Work\Dataset 1000 images'
-RESULT_FOLDER = r'result/result'
+LOADING_METHOD = config['loading_method']
 
-dataset_loading_method = 'loc_7'
-epochs = 300 #total epochs to run
-VIZ_epoch_period = 100 #visualize sample validation set image every VIZ_epoch_period
-BATCHSIZE = 2
-STEP_SIZE = 30
-
-EXPECTED_IMG_SIZE = (162, 512)
-EXPECTED_SIM_SIZE = (162, 512)
 
 class Trainer:
     def __init__(self, model, optimizer, device, num_epochs=1000):
@@ -47,16 +54,20 @@ class Trainer:
     def train_one_epoch(self, dataloader):
         self.model.train() 
         total_loss = 0.0 #[]
-        total_samples = 0
+        num_batches = 0
         for branch1_input, branch2_input, trunk_input, labels in dataloader:
+            # print(num_batches)
+            # print(torch.cuda.memory_allocated(0))
+      
             # Move inputs and labels to the GPU
-            branch1_input = branch1_input.to(self.device)
-            branch2_input = branch2_input.to(self.device)
-            trunk_input = trunk_input.to(self.device)
-            labels = labels.to(self.device)
+            # branch1_input = branch1_input.to(self.device)
+            # branch2_input = branch2_input.to(self.device)
+            # trunk_input = trunk_input.to(self.device)
+            # labels = labels.to(self.device)
             
             # Calculate loss
             loss = self.model.loss(branch1_input, branch2_input, trunk_input, labels)
+            # print(loss)
 
             # Backpropagation
             self.optimizer.zero_grad()
@@ -64,13 +75,21 @@ class Trainer:
             self.optimizer.step()
 
             total_loss += loss.item()
+            #print(f"Raw Loss Value: {loss.item()}")
+
             #total_loss.append(loss.item())
 
             #count sample
-            total_samples += labels.numel()
+            num_batches += 1
 
             #break
-        avg_loss = total_loss / total_samples
+        # Total parameters and trainable parameters.
+        total_params = sum(p.numel() for p in self.model.parameters())
+        print(f"{total_params:,} total parameters.")
+        total_trainable_params = sum(
+        p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f"{total_trainable_params:,} training parameters.")
+        avg_loss = total_loss / num_batches
         #norm total_loss
         self.train_losses.append(avg_loss)
         return avg_loss
@@ -78,47 +97,46 @@ class Trainer:
     def val_one_epoch(self, dataloader_validation):
         self.model.eval()  # Set the model to evaluation mode
         total_val_loss = 0.0
-        total_samples = 0 
+        num_batches = 0 
         with torch.no_grad():
             for branch1_input, branch2_input, trunk_input, labels in dataloader_validation:
-                branch1_input = branch1_input.to(self.device)
-                branch2_input = branch2_input.to(self.device)
-                trunk_input = trunk_input.to(self.device)
-                labels = labels.to(self.device)
+                # branch1_input = branch1_input.to(self.device)
+                # branch2_input = branch2_input.to(self.device)
+                # trunk_input = trunk_input.to(self.device)
+                # labels = labels.to(self.device)
 
                 val_loss = self.model.loss(branch1_input, branch2_input, trunk_input, labels)
                 total_val_loss += val_loss.item()
-
-                total_samples += labels.numel()
+                num_batches += 1
+                #print(f"Raw Loss Value: {val_loss.item()}")
+                #total_samples += labels.numel()
   
-        avg_val_loss = total_val_loss / total_samples
+        avg_val_loss = total_val_loss / num_batches
         self.val_losses.append(avg_val_loss)
         return avg_val_loss
 
     def test(self, dataloader_test, epochs = 0):
         self.model.eval()  # Set the model to evaluation mode
         total_test_loss = 0.0
-        total_samples = 0 
+        num_batches = 0 
 
         with torch.no_grad():
             for batch, (branch1_input, branch2_input, trunk_input, labels) in enumerate(dataloader_test):
-                branch1_input = branch1_input.to(self.device)
-                branch2_input = branch2_input.to(self.device)
-                trunk_input = trunk_input.to(self.device)
-                labels = labels.to(self.device)
+                # branch1_input = branch1_input.to(self.device)
+                # branch2_input = branch2_input.to(self.device)
+                # trunk_input = trunk_input.to(self.device)
+                # labels = labels.to(self.device)
 
                 test_loss = self.model.loss(branch1_input, branch2_input, trunk_input, labels)
                 total_test_loss += test_loss.item()
-                total_samples += labels.numel()
+                num_batches += 1
 
                 #plot sample prediction:
-                # prediction = self.model(branch1_input, branch2_input, trunk_input)
-                # prediction = torch.mean(prediction, dim=1)
-                # plot_prediction(branch1_input.cpu(), labels.cpu(), prediction.cpu(), batch, result_folder=self.result_folder)
+                prediction = self.model(branch1_input, branch2_input, trunk_input)
+                plot_prediction(branch1_input.cpu(), labels.cpu(), prediction.cpu(), batch, result_folder=self.result_folder)
+        #self.visualize_prediction(dataloader_test, comment = 'testset',subset=False)
 
-        self.visualize_prediction(dataloader_test, comment = 'testset',subset=False)
-
-        avg_test_loss = total_test_loss / total_samples
+        avg_test_loss = total_test_loss / num_batches
         self.test_loss = avg_test_loss
         return avg_test_loss
     
@@ -135,8 +153,7 @@ class Trainer:
         self.model.eval()  # Set the model to evaluation mode
         with torch.no_grad():
             for batch, (branch1_input, branch2_input, trunk_input, labels) in enumerate(dataloader):
-                prediction = self.model(branch1_input.to(self.device), branch2_input.to(self.device), trunk_input.to(self.device))
-                prediction = torch.mean(prediction, dim=1)
+                prediction = self.model(branch1_input, branch2_input, trunk_input)
                 plot_prediction(branch1_input.cpu(), labels.cpu(), prediction.cpu(), batch, comment = comment, result_folder=self.result_folder)
         
         return True
@@ -155,7 +172,7 @@ class Trainer:
             log_loss(train_loss, temp_file=self.train_log_path)
             log_loss(val_loss, self.val_log_path)
             
-            print(f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}")
+            print(f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {train_loss:.6f}, Validation Loss: {val_loss:.6f}")
 
             # every X epoch, some sample viz 
             if epoch % VIZ_epoch_period == 0:
@@ -170,22 +187,21 @@ class Trainer:
         store_model(self.model,self.optimizer, epoch, self.result_folder)
         return self.model
 
-def load_data_by_split(data_path, bz, shuffle = True):
+def load_data_by_split(data_path, bz, shuffle = True, device = 'cpu'):
     print('-'*15, 'DATA READIN BY SPLIT', '-'*15)
     split_path_dict = {}
     for split_name in ['train','val','test']:
         split_data_path=os.path.join(data_path, '{data_type}',split_name)
         images_path,simulation_path = get_paths(split_data_path)
-        dataset_ = TransducerDataset(images_path, simulation_path, loading_method=dataset_loading_method)
+        dataset_ = TransducerDataset(images_path, simulation_path, loading_method=LOADING_METHOD, device =device )
         dataloader_ = DataLoader(dataset_, batch_size=bz, shuffle=shuffle, num_workers=0)
         split_path_dict[split_name] = dataloader_
 
     return list(split_path_dict.values())
 
 def main(bz, num_epochs=100, result_folder = RESULT_FOLDER, folder_description = ""):
-    #Use GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print('DEVICE: ',device.type )
+    print(f'DEVICE availiable:{device}')
 
     # Specify Unique Directories for result
     print('-'*15, 'CHECK RESULT DIRECTORY', '-'*15)
@@ -193,37 +209,32 @@ def main(bz, num_epochs=100, result_folder = RESULT_FOLDER, folder_description =
     ensure_directory_exists(result_folder)
 
     # Define the architecture of the branches and trunk network
-    branch1_dim = [EXPECTED_IMG_SIZE[1]*EXPECTED_IMG_SIZE[0], 100, 100, 64]  # Geometry branch dimensions (flattened image input followed by layers)
-    branch2_dim = [2, 64, 32, 16]  # Source location branch
-    trunk_dim = [2, 100, 64, 32]  # Trunk network (grid coordinates)
+    #branch1_dim = [EXPECTED_IMG_SIZE[1]*EXPECTED_IMG_SIZE[0], 100, 100, 64]  # Geometry branch dimensions (flattened image input followed by layers)
+    branch2_dim = [2, 32, 32, 64]  # Source location branch
+    trunk_dim = [2, 100, 100, 64]  # Trunk network (grid coordinates)
 
     # Define geometry_dim and output_dim based on your data
     geometry_dim = EXPECTED_IMG_SIZE  # Image dimensions (height, width)
-    output_dim = EXPECTED_SIM_SIZE[0] * EXPECTED_SIM_SIZE[1]  # Simulation dimensions (pressure map height and width) #162 * 512
+    #output_dim = EXPECTED_SIM_SIZE[0] * EXPECTED_SIM_SIZE[1]  # Simulation dimensions (pressure map height and width) #162 * 512
 
     # Initialize model and move it to the device (GPU/CPU)
-    model = opnn(branch1_dim, branch2_dim, trunk_dim, geometry_dim, output_dim).to(device) # for CNN
-    # model = opnn(branch1_dim, branch2_dim, trunk_dim, geometry_dim, output_dim, patch_size = 9).to(device) # for transformer
-
-
+    model = opnn(branch2_dim, trunk_dim, geometry_dim).to(device) # for CNN
+    # model = opnn(branch2_dim, trunk_dim, geometry_dim, patch_size = 9).to(device) # for transformer
 
     # Initialize optimizer
     #optimizer = Adam(model.parameters(), lr=0.0001) 
-    optimizer = Adam(model.parameters(), lr=0.0001, weight_decay=1e-5)
-
+    optimizer = Adam(model.parameters(), lr=0.01, weight_decay=1e-5)
 
     scheduler = StepLR(optimizer, step_size=STEP_SIZE, gamma=0.5)  # Reduce LR every 500 steps
 
-
     # Prepare data
-    dataloader_train, dataloader_valid,dataloader_test = load_data_by_split(DATA_PATH, bz)
+    dataloader_train, dataloader_valid,dataloader_test = load_data_by_split(DATA_PATH, bz, device=device)
 
     # Train the model
     print('-'*15, 'TRAIN', '-'*15)
     trainer = Trainer(model, optimizer, device, num_epochs)
     trainer.set_result_path(result_folder)
     model = trainer.train(dataloader_train, dataloader_valid, dataloader_test, scheduler)
-
     #Plot Losses
     file_paths = [trainer.train_log_path,trainer.val_log_path]
     plot_logs(file_paths, output_image=os.path.join(trainer.result_folder, "loss_plot.png"))
@@ -231,6 +242,7 @@ def main(bz, num_epochs=100, result_folder = RESULT_FOLDER, folder_description =
     
 if __name__ == "__main__":
     # Add an optional exp description argument
+    print(f"CONFIG: DATA_PATH: {DATA_PATH}, RESULT_FOLDER: {RESULT_FOLDER}, epochs: {epochs}, VIZ_epoch_period: {VIZ_epoch_period}, BATCHSIZE: {BATCHSIZE}, STEP_SIZE: {STEP_SIZE}, EXPECTED_IMG_SIZE: {EXPECTED_IMG_SIZE}, EXPECTED_SIM_SIZE: {EXPECTED_SIM_SIZE}")
     parser = argparse.ArgumentParser(description="Experiment id or brief description, no space or slash allowed. Good Example: high_resolution_1.")
     parser.add_argument('exp_description', type=str, nargs='?', default="", help='Optional Experiment description. Good Example: high_resolution_1.')
     args = parser.parse_args()

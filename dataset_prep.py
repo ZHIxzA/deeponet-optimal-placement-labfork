@@ -20,15 +20,16 @@ def get_paths(root_path):
     # given path to dataset (contain sub directory images, masks, simulation_outputs)
     images_path = glob.glob(os.path.join(f"{root_path}".format(data_type = 'images'), '*'))
     images_path.sort()
-    # masks_path = glob.glob(f"{root_path}/masks/*")
-    # masks_path.sort()
+    masks_path = glob.glob(os.path.join(f"{root_path}".format(data_type = 'masks'), '*'))
+    masks_path.sort()
     simulation_path = glob.glob(os.path.join((root_path).format(data_type = 'simulation_outputs'), '*_max_pressure.mat'), recursive=True)
     simulation_path.sort()
     print('image path', (f"{root_path}/*").format(data_type = 'images'))
+    print('masks path', (f"{root_path}/*").format(data_type = 'masks'))
     print('simulation path', (f"{root_path}/*").format(data_type = 'simulation_outputs'))
 
-    #return images_path, masks_path, simulation_path, 
-    return images_path, simulation_path
+    #return images_path, simulation_path, 
+    return masks_path, simulation_path #use masks as input
 
 
 
@@ -40,7 +41,8 @@ class TransducerDataset(Dataset):
         image_path, 
         simulation_path, 
         image_transforms = True,
-        loading_method = 'individual'
+        loading_method = 'individual',
+        device = 'cpu'
     ):
         """
         image_transforms: bool: decide if apply internally defined transform to image
@@ -55,6 +57,7 @@ class TransducerDataset(Dataset):
         # self.tfms = tfms
         # self.norm_tfms = norm_tfms
         self.loading_method = loading_method
+        self.device  = device
 
 
         # #Image width and Height
@@ -74,14 +77,18 @@ class TransducerDataset(Dataset):
 
         # CHECK: transducer_locs uses center point of the arc, can swith to arc pixel locations for future / other center point
         transducer_locs = transducer_locs.transpose((1,0))
-        self.transducer_locs = torch.tensor(transducer_locs, dtype=torch.float32) 
+        self.transducer_locs = torch.tensor(transducer_locs, dtype=torch.float32).to(device)
 
         x = np.arange(0, self.sim_height)
         y = np.arange(0, self.sim_width)
         xx, yy = np.meshgrid(x, y)
         locations = np.stack([xx.ravel(), yy.ravel()], axis=-1)
-        self.sensor_locations = locations
+        self.sensor_locations = torch.tensor(locations, dtype=torch.float).to(self.device)
+        
 
+        #Preload
+        self.preloaded_images = [self.image_load(i).to(device) for i in range(len(self.image_paths))]
+        self.preloaded_simulations = [self.simulation_indv_load(i).to(device) for i in range(len(self.simulation_paths))]
         
 
     def get_sensor_location(self):
@@ -106,8 +113,6 @@ class TransducerDataset(Dataset):
         else:
             print(f'Resized. But current dataset is NOT configed to resample image')
         
-    
-
     def simulation_indv_load(self, index):
         # Process Simulations Individually
         # simulations = np.array(Image.open(self.simulation_paths[index]).convert('RGB'))[220:415, 100:710,:]
@@ -130,7 +135,6 @@ class TransducerDataset(Dataset):
         return simulations
     
 
-    
     def image_load(self, index):
         image = Image.open(self.image_paths[index]).convert('RGB') 
 
@@ -156,16 +160,16 @@ class TransducerDataset(Dataset):
             locations = self.sensor_locations # array (x,y)
         #Square
         elif type == 'sq':
-            locations = self.sensor_locations.reshape(self.sim_width,self.sim_height,2).transpose(1,0,2) # array of array of (x,y )
+            locations = self.sensor_locations.reshape(self.sim_width,self.sim_height,2).permute(1,0,2) # array of array of (x,y )
         #Cubic
         else:
             ...
-        return torch.tensor(locations, dtype=torch.float)
+        return locations #torch.tensor(locations, dtype=torch.float).to(self.device)
 
     def __getitem__(self, index):
         if self.loading_method =='individual':
             #Images
-            image = self.image_load(index//8)
+            image = self.preloaded_images[index//8]
 
             #Transducer location
             transducer_locs = self.transducer_locs[index%8]
@@ -174,29 +178,28 @@ class TransducerDataset(Dataset):
             locs = self.eval_locs(type = 'sq')
 
             #Simulation
-            simulations = self.simulation_indv_load(index)
+            simulations = self.preloaded_simulations[index]
 
 
-        elif self.loading_method == 'group':
-            #Images
-            image = self.image_load(index)
+        # elif self.loading_method == 'group':
+        #     #Images
+        #     image = self.image_load(index)
 
-            #Transducer location
-            transducer_locs = self.transducer_locs
+        #     #Transducer location
+        #     transducer_locs = self.transducer_locs
 
-            #evaludation location (sensor for deepOnet)
-            loc = self.eval_locs(type = 'sq')
-            locs_expanded = loc.unsqueeze(0)
-            # Repeat along the new dimension to get shape (8, w, h, 2)
-            locs= locs_expanded.repeat(8, 1, 1, 1)
+        #     #evaludation location (sensor for deepOnet)
+        #     loc = self.eval_locs(type = 'sq')
+        #     locs_expanded = loc.unsqueeze(0)
+        #     # Repeat along the new dimension to get shape (8, w, h, 2)
+        #     locs= locs_expanded.repeat(8, 1, 1, 1)
 
-            #Simulation
-            simulations = self.simulation_group_load(index)
+        #     #Simulation
+        #     simulations = self.simulation_group_load(index)
         elif self.loading_method[:3] == 'loc':
             loc_index = int(self.loading_method[-1])
             #Images
-            image = self.image_load(index)
-
+            image = self.preloaded_images[index]
             #Transducer location
             transducer_locs = self.transducer_locs[loc_index]
             
@@ -204,7 +207,7 @@ class TransducerDataset(Dataset):
             locs = self.eval_locs(type = 'sq')
 
             #Simulation
-            simulations = self.simulation_group_load(index)[loc_index]
+            simulations = self.preloaded_simulations[index*8 + loc_index]
         else:
             ...
 
