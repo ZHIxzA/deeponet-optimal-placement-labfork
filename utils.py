@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torchvision.transforms as transforms
-
+import uuid
 
 
 # Helper function to log loss after each epoch
@@ -149,7 +149,22 @@ class SegmentationVisualizer:
         segmentation_np = self.process_segmentation(segmentation)
         #simulation_np 
         prediction_np = self.process_simulation(prediction)
+        # print(image_np.shape,segmentation_np.shape, prediction_np.shape)
 
+        # Generate a unique ID for each data instance
+        unique_id = uuid.uuid4().hex
+
+        # Directory to store npy files
+        output_dir = 'result/viz_array/'
+        os.makedirs(output_dir, exist_ok=True)  # Create directory if it doesn't exist
+
+        # Save flattened arrays and their shapes
+        np.save(f'{output_dir}/{unique_id}_image.npy', image_np.flatten())
+        np.save(f'{output_dir}/{unique_id}_segmentation.npy', segmentation_np.flatten())
+        np.save(f'{output_dir}/{unique_id}_prediction.npy', prediction_np.flatten())
+        
+        print(f"Saved data with unique ID: {unique_id}")
+       
         # Create figure for displaying all plots
         fig, ax = plt.subplots(2, 3, figsize=(15, 6))
 
@@ -189,6 +204,7 @@ class SegmentationVisualizer:
         #plt.tight_layout()
         #plt.show()
         return fig
+        
 
     def visualize_batch(self, images, simulation, predictions, batch, comment, result_folder = ''):
         # Loop through batch and plot each image/segmentation/label/prediction set
