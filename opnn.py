@@ -25,6 +25,7 @@ class opnn(nn.Module):
             nn.ReLU(),
             nn.Linear(branch2_dim[1], branch2_dim[2]),
             nn.ReLU(),
+            nn.Linear(branch2_dim[2], branch2_dim[3]),
             nn.Linear(branch2_dim[2], branch2_dim[3]) 
         )
 
@@ -34,6 +35,7 @@ class opnn(nn.Module):
             nn.Tanh(),
             nn.Linear(trunk_dim[1], trunk_dim[2]),
             nn.Tanh(),
+            nn.Linear(trunk_dim[2], branch2_dim[3]),  
             nn.Linear(trunk_dim[2], branch2_dim[3])  
         )
 
@@ -59,10 +61,19 @@ class opnn(nn.Module):
         # Perform tensor product over the last dimension of y_br and y_tr
         y_out = torch.einsum("bf,bhwf->bhw", y_br, y_tr)
 
+        y_out = torch.einsum("bf,bhwf->bhw", y_br, y_tr)
+
         return y_out
     
     def loss(self, geometry, source_loc, coords, target_pressure):
         y_out = self.forward(geometry, source_loc, coords)
+        #loss = ((y_out - target_pressure) ** 2).mean() #L2
+        numerator = torch.norm(y_out - target_pressure, p=2)
+        denominator = torch.norm(target_pressure, p=2) # Avoid division by zero
+        loss = (numerator / denominator) ** 2
+        #print(f"Relative L2 Loss: {(numerator / denominator).item()}")
+
+
         #loss = ((y_out - target_pressure) ** 2).mean() #L2
         numerator = torch.norm(y_out - target_pressure, p=2)
         denominator = torch.norm(target_pressure, p=2) # Avoid division by zero

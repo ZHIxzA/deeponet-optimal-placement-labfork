@@ -9,7 +9,7 @@ import time
 from opnn import opnn
 from opnn_cnn import opnn_cnn, opnn_resnet
 # opnn = opnn_cnn
-opnn = opnn_resnet
+# opnn = opnn_resnet
 
 from dataset_prep import get_paths, TransducerDataset
 from utils import log_loss, save_loss_to_dated_file, plot_logs,plot_prediction,store_model
@@ -47,13 +47,14 @@ class Trainer:
 
     def set_result_path (self, result_path):
         self.result_folder = result_path
-        self.val_log_path = os.path.join(self.result_folder, 'loss_log_train.txt')
-        self.train_log_path = os.path.join(self.result_folder, 'loss_log_val.txt')
+        self.val_log_path = os.path.join(self.result_folder, 'loss_log_val.txt')
+        self.train_log_path = os.path.join(self.result_folder, 'loss_log_train.txt')
         print(f"Result of this Training will be stored at {result_path}")
 
     def train_one_epoch(self, dataloader):
         self.model.train() 
         total_loss = 0.0 #[]
+        num_batches = 0
         num_batches = 0
         for branch1_input, branch2_input, trunk_input, labels in dataloader:
             # print(num_batches)
@@ -77,9 +78,12 @@ class Trainer:
             total_loss += loss.item()
             #print(f"Raw Loss Value: {loss.item()}")
 
+            #print(f"Raw Loss Value: {loss.item()}")
+
             #total_loss.append(loss.item())
 
             #count sample
+            num_batches += 1
             num_batches += 1
 
             #break
@@ -98,6 +102,7 @@ class Trainer:
         self.model.eval()  # Set the model to evaluation mode
         total_val_loss = 0.0
         num_batches = 0 
+        num_batches = 0 
         with torch.no_grad():
             for branch1_input, branch2_input, trunk_input, labels in dataloader_validation:
                 # branch1_input = branch1_input.to(self.device)
@@ -112,12 +117,14 @@ class Trainer:
                 #total_samples += labels.numel()
   
         avg_val_loss = total_val_loss / num_batches
+        avg_val_loss = total_val_loss / num_batches
         self.val_losses.append(avg_val_loss)
         return avg_val_loss
 
     def test(self, dataloader_test, epochs = 0):
         self.model.eval()  # Set the model to evaluation mode
         total_test_loss = 0.0
+        num_batches = 0 
         num_batches = 0 
 
         with torch.no_grad():
@@ -130,12 +137,17 @@ class Trainer:
                 test_loss = self.model.loss(branch1_input, branch2_input, trunk_input, labels)
                 total_test_loss += test_loss.item()
                 num_batches += 1
+                num_batches += 1
 
                 #plot sample prediction:
                 prediction = self.model(branch1_input, branch2_input, trunk_input)
                 plot_prediction(branch1_input.cpu(), labels.cpu(), prediction.cpu(), batch, result_folder=self.result_folder)
         #self.visualize_prediction(dataloader_test, comment = 'testset',subset=False)
+                prediction = self.model(branch1_input, branch2_input, trunk_input)
+                plot_prediction(branch1_input.cpu(), labels.cpu(), prediction.cpu(), batch, result_folder=self.result_folder)
+        #self.visualize_prediction(dataloader_test, comment = 'testset',subset=False)
 
+        avg_test_loss = total_test_loss / num_batches
         avg_test_loss = total_test_loss / num_batches
         self.test_loss = avg_test_loss
         return avg_test_loss
@@ -168,10 +180,20 @@ class Trainer:
             train_loss = self.train_one_epoch(dataloader)
             scheduler.step()
             val_loss = self.val_one_epoch(dataloader_validation)
+
+            ##### NNI #############
+
+            # nni.report_intermediate_result(float(val_loss))
+
+            # if epoch == self.num_epochs -1:
+            #     nni.report_final_result(float(val_loss))
+
+            ###### NNI #############
             
             log_loss(train_loss, temp_file=self.train_log_path)
             log_loss(val_loss, self.val_log_path)
             
+            print(f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {train_loss:.6f}, Validation Loss: {val_loss:.6f}")
             print(f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {train_loss:.6f}, Validation Loss: {val_loss:.6f}")
 
             # every X epoch, some sample viz 
@@ -184,7 +206,7 @@ class Trainer:
             print(f"Test Loss: {test_loss:.4f}")
 
         # Store model
-        store_model(self.model,self.optimizer, epoch, self.result_folder)
+        # store_model(self.model,self.optimizer, epoch, self.result_folder)
         return self.model
 
 def load_data_by_split(data_path, bz, shuffle = True, device = 'cpu'):
@@ -209,6 +231,9 @@ def main(bz, num_epochs=100, result_folder = RESULT_FOLDER, folder_description =
     ensure_directory_exists(result_folder)
 
     # Define the architecture of the branches and trunk network
+    #branch1_dim = [EXPECTED_IMG_SIZE[1]*EXPECTED_IMG_SIZE[0], 100, 100, 64]  # Geometry branch dimensions (flattened image input followed by layers)
+    branch2_dim = [2, 32, 32, 64]  # Source location branch
+    trunk_dim = [2, 100, 100, 64]  # Trunk network (grid coordinates)
     #branch1_dim = [EXPECTED_IMG_SIZE[1]*EXPECTED_IMG_SIZE[0], 100, 100, 64]  # Geometry branch dimensions (flattened image input followed by layers)
     branch2_dim = [2, 32, 32, 64]  # Source location branch
     trunk_dim = [2, 100, 100, 64]  # Trunk network (grid coordinates)
@@ -242,6 +267,7 @@ def main(bz, num_epochs=100, result_folder = RESULT_FOLDER, folder_description =
     
 if __name__ == "__main__":
     # Add an optional exp description argument
+    print(f"CONFIG: DATA_PATH: {DATA_PATH}, RESULT_FOLDER: {RESULT_FOLDER}, epochs: {epochs}, VIZ_epoch_period: {VIZ_epoch_period}, BATCHSIZE: {BATCHSIZE}, STEP_SIZE: {STEP_SIZE}, EXPECTED_IMG_SIZE: {EXPECTED_IMG_SIZE}, EXPECTED_SIM_SIZE: {EXPECTED_SIM_SIZE}")
     print(f"CONFIG: DATA_PATH: {DATA_PATH}, RESULT_FOLDER: {RESULT_FOLDER}, epochs: {epochs}, VIZ_epoch_period: {VIZ_epoch_period}, BATCHSIZE: {BATCHSIZE}, STEP_SIZE: {STEP_SIZE}, EXPECTED_IMG_SIZE: {EXPECTED_IMG_SIZE}, EXPECTED_SIM_SIZE: {EXPECTED_SIM_SIZE}")
     parser = argparse.ArgumentParser(description="Experiment id or brief description, no space or slash allowed. Good Example: high_resolution_1.")
     parser.add_argument('exp_description', type=str, nargs='?', default="", help='Optional Experiment description. Good Example: high_resolution_1.')

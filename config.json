@@ -3,7 +3,7 @@
     "DATA_PATH":"D:/Alina Zhi Lab Work/Dataset 1000 images",
     "RESULT_FOLDER" : "result/result",
     "loading_method" :"loc_4",
-    "epochs":5,
+    "epochs":50,
     "VIZ_epoch_period":30,
     "BATCHSIZE":32,
     "STEP_SIZE":20,
