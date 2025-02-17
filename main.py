@@ -53,8 +53,7 @@ class Trainer:
 
     def train_one_epoch(self, dataloader):
         self.model.train() 
-        total_loss = 0.0 #[]
-        num_batches = 0
+        total_loss = 0.0 
         num_batches = 0
         for branch1_input, branch2_input, trunk_input, labels in dataloader:
             # print(num_batches)
@@ -84,15 +83,14 @@ class Trainer:
 
             #count sample
             num_batches += 1
-            num_batches += 1
 
             #break
         # Total parameters and trainable parameters.
-        total_params = sum(p.numel() for p in self.model.parameters())
-        print(f"{total_params:,} total parameters.")
-        total_trainable_params = sum(
-        p.numel() for p in self.model.parameters() if p.requires_grad)
-        print(f"{total_trainable_params:,} training parameters.")
+        # total_params = sum(p.numel() for p in self.model.parameters())
+        # print(f"{total_params:,} total parameters.")
+        # total_trainable_params = sum(
+        # p.numel() for p in self.model.parameters() if p.requires_grad)
+        # print(f"{total_trainable_params:,} training parameters.")
         avg_loss = total_loss / num_batches
         #norm total_loss
         self.train_losses.append(avg_loss)
@@ -101,7 +99,6 @@ class Trainer:
     def val_one_epoch(self, dataloader_validation):
         self.model.eval()  # Set the model to evaluation mode
         total_val_loss = 0.0
-        num_batches = 0 
         num_batches = 0 
         with torch.no_grad():
             for branch1_input, branch2_input, trunk_input, labels in dataloader_validation:
@@ -117,14 +114,12 @@ class Trainer:
                 #total_samples += labels.numel()
   
         avg_val_loss = total_val_loss / num_batches
-        avg_val_loss = total_val_loss / num_batches
         self.val_losses.append(avg_val_loss)
         return avg_val_loss
 
     def test(self, dataloader_test, epochs = 0):
         self.model.eval()  # Set the model to evaluation mode
         total_test_loss = 0.0
-        num_batches = 0 
         num_batches = 0 
 
         with torch.no_grad():
@@ -137,17 +132,12 @@ class Trainer:
                 test_loss = self.model.loss(branch1_input, branch2_input, trunk_input, labels)
                 total_test_loss += test_loss.item()
                 num_batches += 1
-                num_batches += 1
 
                 #plot sample prediction:
                 prediction = self.model(branch1_input, branch2_input, trunk_input)
                 plot_prediction(branch1_input.cpu(), labels.cpu(), prediction.cpu(), batch, result_folder=self.result_folder)
         #self.visualize_prediction(dataloader_test, comment = 'testset',subset=False)
-                prediction = self.model(branch1_input, branch2_input, trunk_input)
-                plot_prediction(branch1_input.cpu(), labels.cpu(), prediction.cpu(), batch, result_folder=self.result_folder)
-        #self.visualize_prediction(dataloader_test, comment = 'testset',subset=False)
 
-        avg_test_loss = total_test_loss / num_batches
         avg_test_loss = total_test_loss / num_batches
         self.test_loss = avg_test_loss
         return avg_test_loss
@@ -193,7 +183,6 @@ class Trainer:
             log_loss(train_loss, temp_file=self.train_log_path)
             log_loss(val_loss, self.val_log_path)
             
-            print(f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {train_loss:.6f}, Validation Loss: {val_loss:.6f}")
             print(f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {train_loss:.6f}, Validation Loss: {val_loss:.6f}")
 
             # every X epoch, some sample viz 
@@ -247,7 +236,6 @@ def main(bz, num_epochs=100, result_folder = RESULT_FOLDER, folder_description =
     # model = opnn(branch2_dim, trunk_dim, geometry_dim, patch_size = 9).to(device) # for transformer
 
     # Initialize optimizer
-    #optimizer = Adam(model.parameters(), lr=0.0001) 
     optimizer = Adam(model.parameters(), lr=0.01, weight_decay=1e-5)
 
     scheduler = StepLR(optimizer, step_size=STEP_SIZE, gamma=0.5)  # Reduce LR every 500 steps
@@ -259,6 +247,9 @@ def main(bz, num_epochs=100, result_folder = RESULT_FOLDER, folder_description =
     print('-'*15, 'TRAIN', '-'*15)
     trainer = Trainer(model, optimizer, device, num_epochs)
     trainer.set_result_path(result_folder)
+    #save the config file before training
+    with open(os.path.join(trainer.result_folder,'config.json'), "w") as json_file:
+        json.dump(config, json_file, indent=4)
     model = trainer.train(dataloader_train, dataloader_valid, dataloader_test, scheduler)
     #Plot Losses
     file_paths = [trainer.train_log_path,trainer.val_log_path]
@@ -268,11 +259,9 @@ def main(bz, num_epochs=100, result_folder = RESULT_FOLDER, folder_description =
 if __name__ == "__main__":
     # Add an optional exp description argument
     print(f"CONFIG: DATA_PATH: {DATA_PATH}, RESULT_FOLDER: {RESULT_FOLDER}, epochs: {epochs}, VIZ_epoch_period: {VIZ_epoch_period}, BATCHSIZE: {BATCHSIZE}, STEP_SIZE: {STEP_SIZE}, EXPECTED_IMG_SIZE: {EXPECTED_IMG_SIZE}, EXPECTED_SIM_SIZE: {EXPECTED_SIM_SIZE}")
-    print(f"CONFIG: DATA_PATH: {DATA_PATH}, RESULT_FOLDER: {RESULT_FOLDER}, epochs: {epochs}, VIZ_epoch_period: {VIZ_epoch_period}, BATCHSIZE: {BATCHSIZE}, STEP_SIZE: {STEP_SIZE}, EXPECTED_IMG_SIZE: {EXPECTED_IMG_SIZE}, EXPECTED_SIM_SIZE: {EXPECTED_SIM_SIZE}")
     parser = argparse.ArgumentParser(description="Experiment id or brief description, no space or slash allowed. Good Example: high_resolution_1.")
     parser.add_argument('exp_description', type=str, nargs='?', default="", help='Optional Experiment description. Good Example: high_resolution_1.')
     args = parser.parse_args()
-
     # Call the main function and pass the argument
     main(bz=BATCHSIZE,num_epochs=epochs, result_folder=RESULT_FOLDER, folder_description=args.exp_description)
     

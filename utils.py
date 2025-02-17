@@ -155,18 +155,18 @@ class SegmentationVisualizer:
         # print(image_np.shape,segmentation_np.shape, prediction_np.shape)
 
         # Generate a unique ID for each data instance
-        unique_id = uuid.uuid4().hex
+        # unique_id = uuid.uuid4().hex
 
-        # Directory to store npy files
-        output_dir = 'result/viz_array/'
-        os.makedirs(output_dir, exist_ok=True)  # Create directory if it doesn't exist
+        # # Directory to store npy files
+        # output_dir = 'result/viz_array/'
+        # os.makedirs(output_dir, exist_ok=True)  # Create directory if it doesn't exist
 
-        # Save flattened arrays and their shapes
-        np.save(f'{output_dir}/{unique_id}_image.npy', image_np.flatten())
-        np.save(f'{output_dir}/{unique_id}_segmentation.npy', segmentation_np.flatten())
-        np.save(f'{output_dir}/{unique_id}_prediction.npy', prediction_np.flatten())
+        # # Save flattened arrays and their shapes
+        # np.save(f'{output_dir}/{unique_id}_image.npy', image_np.flatten())
+        # np.save(f'{output_dir}/{unique_id}_segmentation.npy', segmentation_np.flatten())
+        # np.save(f'{output_dir}/{unique_id}_prediction.npy', prediction_np.flatten())
         
-        print(f"Saved data with unique ID: {unique_id}")
+        # print(f"Saved data with unique ID: {unique_id}")
         if prediction_np is None:
             prediction_np = np.zeros(segmentation_np.shape)
 

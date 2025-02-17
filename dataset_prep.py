@@ -24,8 +24,6 @@ def get_paths(root_path):
     images_path.sort()
     masks_path = glob.glob(os.path.join(f"{root_path}".format(data_type = 'masks'), '*'))
     masks_path.sort()
-    masks_path = glob.glob(os.path.join(f"{root_path}".format(data_type = 'masks'), '*'))
-    masks_path.sort()
     simulation_path = glob.glob(os.path.join((root_path).format(data_type = 'simulation_outputs'), '*_max_pressure.mat'), recursive=True)
     simulation_path.sort()
     print('image path', (f"{root_path}/*").format(data_type = 'images'))
@@ -51,8 +49,6 @@ class TransducerDataset(Dataset):
         image_transforms: bool: decide if apply internally defined transform to image
         loading_method: str, individual / group.
                 - individual: treat each transducer location - image pair as one sample
-        loading_method: str, individual / group.
-                - individual: treat each transducer location - image pair as one sample
                 - group: treat each image and corresponding 8 transducer location as one object
                 - loc_<location_index>: load only the dataset of transducer in 1 location
         """
@@ -63,8 +59,6 @@ class TransducerDataset(Dataset):
         # self.norm_tfms = norm_tfms
         self.loading_method = loading_method
         self.device  = device
-        self.device  = device
-
 
         # #Image width and Height
         self.width = 512
@@ -83,7 +77,6 @@ class TransducerDataset(Dataset):
 
         # CHECK: transducer_locs uses center point of the arc, can swith to arc pixel locations for future / other center point
         transducer_locs = transducer_locs.transpose((1,0))
-        self.transducer_locs = torch.tensor(transducer_locs, dtype=torch.float32).to(device)
         self.transducer_locs = torch.tensor(transducer_locs, dtype=torch.float32).to(device)
 
         x = np.arange(0, self.sim_height)
@@ -182,7 +175,6 @@ class TransducerDataset(Dataset):
         #Square
         elif type == 'sq':
             locations = self.sensor_locations.reshape(self.sim_width,self.sim_height,2).permute(1,0,2) # array of array of (x,y )
-            locations = self.sensor_locations.reshape(self.sim_width,self.sim_height,2).permute(1,0,2) # array of array of (x,y )
         #Cubic
         else:
             ...
@@ -192,8 +184,6 @@ class TransducerDataset(Dataset):
         if self.loading_method =='individual':
             #Images
             image = self.preloaded_images[index//8]
-            image = self.preloaded_images[index//8]
-
             #Transducer location
             transducer_locs = self.transducer_locs[index%8]
 
@@ -225,7 +215,6 @@ class TransducerDataset(Dataset):
             loc_index = int(self.loading_method[-1])
             #Images
             image = self.preloaded_images[index]
-            image = self.preloaded_images[index]
             #Transducer location
             transducer_locs = self.transducer_locs[loc_index]
             
@@ -233,7 +222,6 @@ class TransducerDataset(Dataset):
             locs = self.eval_locs(type = 'sq')
 
             #Simulation
-            simulations = self.preloaded_simulations[index*8 + loc_index]
             simulations = self.preloaded_simulations[index*8 + loc_index]
         else:
             ...
