@@ -187,7 +187,6 @@ class TransducerDataset(Dataset):
         else:
             ...
         return locations #torch.tensor(locations, dtype=torch.float).to(self.device)
-        return locations #torch.tensor(locations, dtype=torch.float).to(self.device)
 
     def __getitem__(self, index):
         if self.loading_method =='individual':
