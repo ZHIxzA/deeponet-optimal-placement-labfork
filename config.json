@@ -9,6 +9,7 @@
     "STEP_SIZE":10,
     
     "prediction_plot":true,
+    "image_transforms":"transformer",
 
     "EXPECTED_IMG_SIZE":[162, 512],
     "EXPECTED_SIM_SIZE":[162, 512],

@@ -8,8 +8,10 @@ import time
 #from opnn_transformer import opnn
 from opnn import opnn
 from opnn_cnn import opnn_cnn, opnn_resnet
+from opnn_transformer_alina import opnn_transformer
 # opnn = opnn_cnn
 # opnn = opnn_resnet
+opnn = opnn_transformer
 
 from dataset_prep import get_paths, TransducerDataset
 from utils import log_loss, save_loss_to_dated_file, plot_logs,plot_prediction,store_model
@@ -33,6 +35,7 @@ EXPECTED_IMG_SIZE = config['EXPECTED_IMG_SIZE']
 EXPECTED_SIM_SIZE = config['EXPECTED_SIM_SIZE']
 
 LOADING_METHOD = config['loading_method']
+IMG_TRANSFORM = config['image_transforms']
 
 
 class Trainer:
@@ -59,15 +62,9 @@ class Trainer:
             # print(num_batches)
             # print(torch.cuda.memory_allocated(0))
       
-            # Move inputs and labels to the GPU
-            # branch1_input = branch1_input.to(self.device)
-            # branch2_input = branch2_input.to(self.device)
-            # trunk_input = trunk_input.to(self.device)
-            # labels = labels.to(self.device)
             
             # Calculate loss
             loss = self.model.loss(branch1_input, branch2_input, trunk_input, labels)
-            # print(loss)
 
             # Backpropagation
             self.optimizer.zero_grad()
@@ -75,13 +72,7 @@ class Trainer:
             self.optimizer.step()
 
             total_loss += loss.item()
-            #print(f"Raw Loss Value: {loss.item()}")
 
-            #print(f"Raw Loss Value: {loss.item()}")
-
-            #total_loss.append(loss.item())
-
-            #count sample
             num_batches += 1
 
             #break
@@ -92,7 +83,6 @@ class Trainer:
         # p.numel() for p in self.model.parameters() if p.requires_grad)
         # print(f"{total_trainable_params:,} training parameters.")
         avg_loss = total_loss / num_batches
-        #norm total_loss
         self.train_losses.append(avg_loss)
         return avg_loss
 
@@ -102,10 +92,6 @@ class Trainer:
         num_batches = 0 
         with torch.no_grad():
             for branch1_input, branch2_input, trunk_input, labels in dataloader_validation:
-                # branch1_input = branch1_input.to(self.device)
-                # branch2_input = branch2_input.to(self.device)
-                # trunk_input = trunk_input.to(self.device)
-                # labels = labels.to(self.device)
 
                 val_loss = self.model.loss(branch1_input, branch2_input, trunk_input, labels)
                 total_val_loss += val_loss.item()
@@ -204,7 +190,11 @@ def load_data_by_split(data_path, bz, shuffle = True, device = 'cpu'):
     for split_name in ['train','val','test']:
         split_data_path=os.path.join(data_path, '{data_type}',split_name)
         images_path,simulation_path = get_paths(split_data_path)
-        dataset_ = TransducerDataset(images_path, simulation_path, loading_method=LOADING_METHOD, device =device )
+        dataset_ = TransducerDataset(
+            images_path, simulation_path, 
+            loading_method=LOADING_METHOD, 
+            image_transforms=IMG_TRANSFORM,
+            device=device )
         dataloader_ = DataLoader(dataset_, batch_size=bz, shuffle=shuffle, num_workers=0)
         split_path_dict[split_name] = dataloader_
 
@@ -264,4 +254,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     # Call the main function and pass the argument
     main(bz=BATCHSIZE,num_epochs=epochs, result_folder=RESULT_FOLDER, folder_description=args.exp_description)
-    
+    torch.cuda.empty_cache()

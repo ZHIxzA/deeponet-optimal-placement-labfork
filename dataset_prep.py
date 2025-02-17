@@ -46,8 +46,8 @@ class TransducerDataset(Dataset):
         device = 'cpu'
     ):
         """
-        image_transforms: bool: decide if apply internally defined transform to image
-        loading_method: str, individual / group.
+        image_transforms: original (keep 162, 512 size) / transformer (224,224 size)
+        loading_method: str  individual / group / loc_<loc idx>.
                 - individual: treat each transducer location - image pair as one sample
                 - group: treat each image and corresponding 8 transducer location as one object
                 - loc_<location_index>: load only the dataset of transducer in 1 location
@@ -141,16 +141,14 @@ class TransducerDataset(Dataset):
     def image_load(self, index):
         image = Image.open(self.image_paths[index]).convert('RGB') 
 
-        if self.image_transforms:
-            # image_transforms = transforms.Compose([
-            #     #transforms.Resize((self.height, self.width)), #resize
-            #     transforms.Resize((self.height, self.width), interpolation=transforms.InterpolationMode.BILINEAR),  # resample image
-            #     transforms.ToTensor(),
-            #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            # ])
-            # image = image_transforms(image)
-
-            #TODO: add another parameter for type of transforming
+        if self.image_transforms == 'transformer':
+            image_transforms = transforms.Compose([
+                transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.BILINEAR),  # Resize
+                transforms.ToTensor(),  # Convert to tensor
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # Normalize
+            ])
+            image = image_transforms(image)
+        elif self.image_transforms == 'original':
             image_transforms = transforms.Compose([
                 transforms.Resize((self.height, self.width), interpolation=transforms.InterpolationMode.BILINEAR),  # Resize
                 transforms.ToTensor(),  # Convert to tensor

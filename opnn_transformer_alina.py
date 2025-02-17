@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
 
-class opnn(nn.Module):
+class opnn_transformer(nn.Module):
     def __init__(self, branch2_dim, trunk_dim, geometry_dim):
-        super(opnn, self).__init__()
+        super(opnn_transformer, self).__init__()
 
         # Load a pretrained Vision Transformer (ViT)
         self.vit = models.vit_b_16(pretrained=True)
