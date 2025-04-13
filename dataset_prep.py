@@ -18,22 +18,32 @@ from transformation import AnisotropicDiffusion, MedianFilter
 
 """
 
-def get_paths(root_path):
-    # given path to dataset (contain sub directory images, masks, simulation_outputs)
-    images_path = glob.glob(os.path.join(f"{root_path}".format(data_type = 'images'), '*'))
-    images_path.sort()
-    masks_path = glob.glob(os.path.join(f"{root_path}".format(data_type = 'masks'), '*'))
-    masks_path.sort()
+def get_paths(root_path, use_masks = True):
+    """
+    root_path: given path to dataset (contain sub directory images, masks, simulation_outputs)
+    subdirectory names has to match the spells above
+    use_masks: True / False
+        - True: return masks as model input
+        - False: return images as model input
+    """
+    
+    
+    
+    print('simulation path', (f"{root_path}/*").format(data_type = 'simulation_outputs'))
     simulation_path = glob.glob(os.path.join((root_path).format(data_type = 'simulation_outputs'), '*_max_pressure.mat'), recursive=True)
     simulation_path.sort()
-    print('image path', (f"{root_path}/*").format(data_type = 'images'))
-    print('masks path', (f"{root_path}/*").format(data_type = 'masks'))
-    print('simulation path', (f"{root_path}/*").format(data_type = 'simulation_outputs'))
-    return images_path, simulation_path, 
-    return masks_path, simulation_path #use masks as input
-
-
-
+    
+    if use_masks:
+        print('masks path', (f"{root_path}/*").format(data_type = 'masks'))
+        masks_path = glob.glob(os.path.join(f"{root_path}".format(data_type = 'masks'), '*'))
+        masks_path.sort()
+        return masks_path, simulation_path #use masks as input
+    else:
+        print('image path', (f"{root_path}/*").format(data_type = 'images'))
+        images_path = glob.glob(os.path.join(f"{root_path}".format(data_type = 'images'), '*'))
+        images_path.sort()
+        return images_path, simulation_path, 
+    
 
 
 class TransducerDataset(Dataset):
